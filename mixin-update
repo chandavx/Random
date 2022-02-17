@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 #nothing
@@ -136,10 +136,10 @@ class FileHelper(Logger):
                     # Avoid read large non-text file as it'll cost much time
                     sfile.seek(-1, 2)
                     c = sfile.read(1)
-                    if c == '\n':
+                    if c == b'\n':
                         sfile.seek(0, 0)
                         src_contents = sfile.read()
-                        if "{{" in src_contents:
+                        if b"{{" in src_contents:
                             try:
                                 slines = pystache.render(src_contents, params)
                             except pystache.context.KeyNotFoundError as e:
@@ -213,7 +213,7 @@ class FileHelper(Logger):
                     with open(dst_fn, "w") as fp:
                         fp.writelines(dlines)
         else:
-            if operator.eq(orig_dlines, dlines):
+            if not operator.eq(orig_dlines, dlines):
                 if dry_run:
                     self.warning("{} is out of date".format(dst_fn))
                     retval = False
@@ -720,7 +720,7 @@ class Parser(FileHelper):
             if sys.version_info < (3, 0, 1):
                 cp = ConfigParser.SafeConfigParser()
             else:
-                cp = configparser.SafeConfigParser(strict=False, allow_no_value=True)
+                cp = configparser.ConfigParser(strict=False, allow_no_value=True)
             cp.optionxform = str
 
         spec_file = sf
@@ -786,7 +786,7 @@ class Parser(FileHelper):
             group_dir = os.path.join(mixins_tree_dir, group)
             mixins_tree[group]["group_dir"] = group_dir
             mixins_tree[group]["options"] = {}
-            mixins_tree[group]["deps"] = set()
+            mixins_tree[group]["deps"] = []
             mixins_tree[group]["doc"] = {}
 
             # Check for a mixinfo file in the root of the group directory
@@ -800,7 +800,7 @@ class Parser(FileHelper):
                 # prior to inheriting this mixin, typically because we need the
                 # other groups to define certain variables for us
                 if cp.has_option("mixinfo", "deps"):
-                    mixins_tree[group]["deps"] = set(cp.get("mixinfo", "deps").split())
+                     mixins_tree[group]["deps"] = cp.get("mixinfo", "deps").split()
 
             mixins_tree[group]["doc"]["tree"] = {}
             mixins_tree[group]["doc"]["fn"] = ""
@@ -825,7 +825,7 @@ class Parser(FileHelper):
                     cur_opt["listdir"] = os.listdir(opt_dir)
                 cur_opt["optiondir"] = opt_dir
 
-                cur_opt["deps"] = set()
+                cur_opt["deps"] = []
                 cur_opt["defaults"] = {}
 
                 option_spec_fn = os.path.join(cur_opt["optiondir"], Configurer.OPTION_SPEC_FN)
@@ -840,7 +840,7 @@ class Parser(FileHelper):
                     # Options may define their own dependencies just like at the
                     # group-level
                     if cp.has_option("mixinfo", "deps"):
-                        cur_opt["deps"] = set(cp.get("mixinfo", "deps").split())
+                        cur_opt["deps"] = cp.get("mixinfo", "deps").split()
 
                     if cp.has_section("defaults"):
                         for k, v in cp.items("defaults"):
@@ -887,7 +887,15 @@ class Parser(FileHelper):
 
 
     def _get_deps(self, mixins_tree, group, option):
-        return list(mixins_tree[group]["deps"] | mixins_tree[group]["options"][option]["deps"])
+        """Return the set of dependencies.  The dependencies are stored
++        as lists to preserve the order, since the file contents depend on
++        the order of mixins and should be stable from run to run."""
++        deps = []
++        for d in (mixins_tree[group]["deps"] + mixins_tree[group]["options"][option]["deps"]):
++            if d not in deps:
++                deps.append(d)
++        return deps
+
 
     def _check_section(self, section, cp, sf):
         if not cp.has_section(section):
@@ -1209,12 +1217,9 @@ class Updater(FileHelper):
                         dest_lines = self._amend_file(dest_lines, os.path.join(optdir, f), parser.mixins_tree_dir, parser.product_dir, params)
                 if fsrc in flist:
                     dest_lines = self._amend_file(dest_lines, os.path.join(optdir, fsrc), parser.mixins_tree_dir, parser.product_dir, params)
-
             if not self.update_file_with_lines(dest_lines, dest_fn, self.dry_run):
                 retval = False
-
         return retval
-
 
 
 
