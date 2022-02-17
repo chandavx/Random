@@ -888,13 +888,13 @@ class Parser(FileHelper):
 
     def _get_deps(self, mixins_tree, group, option):
         """Return the set of dependencies.  The dependencies are stored
-+        as lists to preserve the order, since the file contents depend on
-+        the order of mixins and should be stable from run to run."""
-+        deps = []
-+        for d in (mixins_tree[group]["deps"] + mixins_tree[group]["options"][option]["deps"]):
-+            if d not in deps:
-+                deps.append(d)
-+        return deps
+          as lists to preserve the order, since the file contents depend on
+         the order of mixins and should be stable from run to run."""
+         deps = []
+         for d in (mixins_tree[group]["deps"] + mixins_tree[group]["options"][option]["deps"]):
+             if d not in deps:
+                 deps.append(d)
+         return deps
 
 
     def _check_section(self, section, cp, sf):
